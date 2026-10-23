@@ -1,9 +1,16 @@
 name: build-and-push-image
 
 # 推送 main/master 或打 v* 标签时自动构建镜像并推送到 GitHub Container Registry
+# 注意：只有改动影响镜像的文件（Dockerfile / requirements / app / workflow 本身）才触发构建，
+# 改 docker-compose.yml、README 等不会触发（避免网页小改动就打断正在进行的构建）
 on:
   push:
     branches: [main, master]
+    paths:
+      - "Dockerfile"
+      - "requirements.txt"
+      - "app/**"
+      - ".github/workflows/**"
     tags: ["v*"]
   workflow_dispatch:
 
