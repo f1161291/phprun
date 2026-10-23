@@ -387,7 +387,12 @@ async function api(path, opt={}){
   if (res.status === 401){ askToken(); throw new Error('需要令牌'); }
   let data = null;
   try { data = await res.json(); } catch(e){}
-  if (!res.ok) throw new Error((data && data.detail) || res.statusText);
+  if (!res.ok){
+    const m = data && data.detail;
+    const msg = typeof m === 'string' ? m
+      : (Array.isArray(m) ? m.map(x=>x.msg||'').filter(Boolean).join('；') : res.statusText);
+    throw new Error(msg);
+  }
   return data;
 }
 

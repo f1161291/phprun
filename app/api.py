@@ -163,10 +163,12 @@ async def fs_upload(
 
 
 @router.post("/fs/delete")
-def fs_delete(root: str = Form("mount"), path: str = Form(...)):
-    """删除挂载目录（/mount）或上传目录下的文件 / 目录。禁止删除根目录本身、禁止越界。"""
+def fs_delete(payload: dict):
+    """删除挂载目录（/mount）或上传目录下的文件 / 目录。禁止删除根目录本身、禁止越界。
+    前端以 JSON 提交（{root, path}），与 /mounted/run 一致。"""
+    root = str(payload.get("root") or "mount")
     base = MOUNT_DIR if root == "mount" else JOBS_DIR
-    rel = _safe_relpath(path)
+    rel = _safe_relpath(str(payload.get("path") or ""))
     if not rel:
         raise HTTPException(400, "不能删除根目录")
     target = base / rel
