@@ -162,6 +162,32 @@ async def fs_upload(
     return {"written": written, "path": rel}
 
 
+@router.post("/fs/delete")
+def fs_delete(root: str = Form("mount"), path: str = Form(...)):
+    """删除挂载目录（/mount）或上传目录下的文件 / 目录。禁止删除根目录本身、禁止越界。"""
+    base = MOUNT_DIR if root == "mount" else JOBS_DIR
+    rel = _safe_relpath(path)
+    if not rel:
+        raise HTTPException(400, "不能删除根目录")
+    target = base / rel
+    if not _under(target, base):
+        raise HTTPException(400, "路径越界")
+    if not target.exists():
+        raise HTTPException(404, "路径不存在")
+    try:
+        if target.is_symlink() or target.is_file():
+            target.unlink()
+        elif target.is_dir():
+            shutil.rmtree(target)
+        else:
+            raise HTTPException(400, "不支持的节点类型")
+    except HTTPException:
+        raise
+    except OSError as e:
+        raise HTTPException(400, f"删除失败: {e}")
+    return {"deleted": rel}
+
+
 # ---------------- 上传 ----------------
 @router.post("/upload")
 async def upload(

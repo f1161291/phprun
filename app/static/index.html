@@ -113,7 +113,6 @@ code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
   <h1>Phprun <span style="font-weight:400;color:var(--dim);font-size:12px">PHP · Python · Node</span></h1>
   <nav id="tabs">
     <button data-t="tasks" class="on">任务</button>
-    <button data-t="upload">上传运行</button>
     <button data-t="mount">挂载目录</button>
     <button data-t="pkgs">包管理</button>
   </nav>
@@ -136,7 +135,7 @@ code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
         </div>
         <div class="pane-bd">
           <div class="jgrid" id="jobs"></div>
-          <div class="card hidden" id="nojobs" style="text-align:center;color:var(--dim)">还没有任务，去「上传运行」或「挂载目录」新建一个</div>
+          <div class="card hidden" id="nojobs" style="text-align:center;color:var(--dim)">还没有任务，去「挂载目录」上传代码运行</div>
         </div>
       </div>
       <div class="pane">
@@ -156,80 +155,6 @@ code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
     </div>
   </section>
 
-  <!-- 上传 -->
-  <section id="tab-upload" class="hidden">
-    <div class="row2">
-      <div class="card">
-        <h3 style="margin:0 0 4px;font-size:15px">上传文件 / 目录 / zip</h3>
-        <div class="hint">单文件、多文件（保留相对路径）、整个目录、或一个 zip，都会落到独立任务工作区。目录/文件夹选择与拖拽**无文件数限制**（Firefox 等旧浏览器选目录时受浏览器 1000 文件上限，可改传 zip）。</div>
-        <div class="drop" id="drop" style="margin-top:14px">
-          拖拽文件到此处，或
-          <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-            <button class="b" id="pickf">选择文件</button>
-            <button class="b" id="pickd">选择目录</button>
-            <button class="b" id="pickz">选择 zip</button>
-          </div>
-        </div>
-        <input type="file" id="inpF" multiple class="hidden">
-        <input type="file" id="inpD" webkitdirectory directory multiple class="hidden">
-        <input type="file" id="inpZ" accept=".zip" class="hidden">
-        <div class="chips" id="chips"></div>
-        <form id="upform">
-          <div class="row2">
-            <div><label>任务名称</label><input type="text" id="uname" placeholder="留空取文件名"></div>
-            <div><label>入口文件（可选）</label><input type="text" id="uentry" placeholder="如 index.php / script.php / main.py"></div>
-          </div>
-          <label>自定义命令（可选，优先于入口）</label>
-          <input type="text" id="ucmd" placeholder="如 php think run 或 python app.py 或 node server.js">
-          <div class="hint">不填入口时自动识别：<code>index.php/main.php/app.php · main.py/app.py · main.js/app.js</code>，否则目录内唯一脚本。<b>语言优先级 PHP &gt; Python &gt; Node</b>；有 <code>index.php</code>（或 <code>public/index.php</code>）时自动按 Web 启动。</div>
-          <label>PHP 运行模式（仅 .php 任务生效，py/js 忽略）</label>
-          <select id="urunmode">
-            <option value="auto">自动 —— 有 index.php / public/index.php 就用 php -S 起 Web，否则按 CLI 跑</option>
-            <option value="web">Web —— php -S 0.0.0.0:端口 -t 文档根（Laravel/ThinkPHP/纯 index.php）</option>
-            <option value="cli">CLI —— php 脚本.php（批处理 / 长驻进程）</option>
-          </select>
-          <label>指定端口（可选）</label>
-          <input type="number" id="uport" min="1" placeholder="留空 = 自动分配（按启动顺序）">
-          <div class="hint">须在页首显示的端口段内；指定端口已被占用时启动会直接报错。Web 服务读 <code>getenv("PORT")</code>（PHP）或 <code>os.environ["PORT"]</code>（Python）即可拿到该端口。</div>
-          <label>反代内部端口（可选）</label>
-          <input type="number" id="uproxy" min="1" placeholder="如 8766 —— 脚本自己监听的端口，留空 = 不反代">
-          <div class="hint">脚本写死了监听端口（如 <code>8766</code>）又不想改脚本时填这里：面板把分配到的端口（如 8600）反代到 <code>127.0.0.1:8766</code>，外部只暴露 8600。</div>
-          <label>定时运行（cron，5 段，可选）</label>
-          <input type="text" id="usched" placeholder="如 0 8 * * *（每天 08:00），留空 = 不定时">
-          <div class="hint">格式 <code>分 时 日 月 周</code>：如 <code>*/5 * * * *</code> 每5分钟、<code>0 8 * * *</code> 每天8点、<code>30 2 * * 0</code> 每周日2:30。到点自动启动，正在运行则跳过。</div>
-          <div style="margin-top:16px"><button class="b primary" type="submit">创建任务</button></div>
-        </form>
-      </div>
-      <div class="card">
-        <h3 style="margin:0 0 8px;font-size:15px">约定</h3>
-        <div class="hint" style="line-height:1.9">
-          1. 每个任务启动时分配一个端口，通过环境变量 <code>PORT</code> / <code>HOST</code> 传入；PHP 里用 <code>getenv("PORT")</code> 读，Python 用 <code>os.environ["PORT"]</code>，Node 用 <code>process.env.PORT</code>。<br>
-          2. 创建或编辑时可<b>指定端口</b>，留空按启动顺序自动分配；端口池耗尽先停旧任务，或在 compose 里扩大范围。<br>
-          3. 批处理脚本忽略端口即可，跑完状态自动变 <b>exited</b>；Web 服务保持 <b>running</b>。<br>
-          4. <b>PHP 运行模式</b>：<code>auto</code> 看有没有 <code>index.php</code>（含 <code>public/</code>）决定 Web/CLI；可强制 <code>web</code>（<code>php -S</code>，文档根优先 <code>public/</code>）或 <code>cli</code>（<code>php 脚本.php</code>）。<br>
-          5. PHP 项目带 <code>composer.json</code> 时，启动前自动 <code>composer install</code>；运行报缺 <code>vendor/autoload.php</code> 或缺类时自动 <code>composer install</code> / <code>composer require</code> 并重启一次（日志有「自动装依赖」标记）。<br>
-          6. Python 缺包同样自动 <code>pip install</code>；三种语言共用一套面板与端口池。<br>
-          7. 入口文件识别顺序：自定义命令 &gt; 指定入口 &gt; 顶层惯用名（<code>index.php/main.php/app.php · main.py · main.js</code>）&gt; 顶层唯一脚本 &gt; 深层惯用名 &gt; 全目录唯一脚本。<br>
-          8. 填了 <b>cron 定时</b> 的任务到点自动启动（每分钟最多一次）；填了<b>反代内部端口</b>时把对外端口 TCP 转发到脚本自己监听的端口。
-        </div>
-        <div class="hint" style="margin-top:14px">PHP Web 示例（有 <code>index.php</code> 即自动 <code>php -S</code>，无需改代码）：</div>
-        <pre class="out" style="margin-top:8px">&lt;?php
-header("Content-Type: text/plain; charset=utf-8");
-$port = getenv("PORT") ?: "8600";
-echo "hello from php, listen " . getenv("HOST") . ":$port\n";
-echo "PHP " . PHP_VERSION . "\n";</pre>
-        <div class="hint" style="margin-top:14px">PHP CLI 示例（单文件批处理，跑完自动 exited）：</div>
-        <pre class="out" style="margin-top:8px">&lt;?php
-for ($i = 1; $i &lt;= 3; $i++) {
-    echo "step $i / 3 ...\n";
-    flush();
-    sleep(1);
-}
-echo "done, port=" . (getenv("PORT") ?: "-") . "\n";</pre>
-        <div class="hint" style="margin-top:14px">Python / Node 任务同理：<code>os.environ["PORT"]</code> / <code>process.env.PORT</code>，按扩展名自动选解释器。</div>
-      </div>
-    </div>
-  </section>
 
   <!-- 挂载 -->
   <section id="tab-mount" class="hidden">
@@ -542,134 +467,6 @@ function closeLog(){
 $('#logclose').onclick = closeLog;
 $('#logclear').onclick = async ()=>{ if(!LOG_ID) return; try{ await api(`/api/jobs/${LOG_ID}/logs`,{method:'DELETE'}); $('#logbody').innerHTML=''; }catch(e){ toast(e.message,'err'); } };
 
-/* ---------- 上传 ---------- */
-let SELECTED = [];   // {path, file}
-const drop = $('#drop');
-
-function addFiles(list){
-  for (const it of list){
-    const f = it.file || it;
-    const p = it.path || f.webkitRelativePath || f.name;
-    const i = SELECTED.findIndex(x=>x.path===p);
-    if (i>=0) SELECTED[i] = {path:p, file:f}; else SELECTED.push({path:p, file:f});
-  }
-  renderChips();
-}
-function renderChips(){
-  $('#chips').innerHTML = SELECTED.length
-    ? `<span class="chip">已选 <b>${SELECTED.length}</b> 个</span>` +
-      SELECTED.slice(0,60).map(f=>`<span class="chip">${esc(f.path)}</span>`).join('') +
-      (SELECTED.length>60?`<span class="chip">…还有 ${SELECTED.length-60} 个</span>`:'')
-    : '';
-}
-$('#pickf').onclick = e=>{e.preventDefault(); $('#inpF').click();};
-$('#pickd').onclick = async e=>{
-  e.preventDefault();
-  // Chrome/Edge：用 File System Access API 选目录，没有 1000 文件上限
-  if (window.showDirectoryPicker){
-    try{
-      const dir = await window.showDirectoryPicker();
-      const out = [];
-      await walkDirHandle(dir, '', out);
-      if (out.length){ SELECTED=[]; addFiles(out); }
-    }catch(err){ if (err && err.name !== 'AbortError') toast('读取目录失败：'+err.message,'err'); }
-    return;
-  }
-  $('#inpD').click();   // 兜底（Firefox/Safari）：仍受浏览器 1000 文件上限
-};
-async function walkDirHandle(dh, base, out){
-  for await (const [name, h] of dh.entries()){
-    const rel = base ? base+'/'+name : name;
-    if (h.kind === 'file'){
-      const f = await h.getFile();
-      out.push({path: rel, file: f});
-    } else if (h.kind === 'directory'){
-      await walkDirHandle(h, rel, out);
-    }
-  }
-}
-$('#pickz').onclick = e=>{e.preventDefault(); $('#inpZ').click();};
-$('#inpF').onchange = e=>{ addFiles([...e.target.files]); e.target.value=''; };
-$('#inpD').onchange = e=>{ SELECTED=[]; addFiles([...e.target.files]); e.target.value=''; };
-$('#inpZ').onchange = e=>{ SELECTED=[]; addFiles([...e.target.files]); e.target.value=''; };
-['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('hot');}));
-['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('hot');}));
-drop.addEventListener('drop', async e=>{
-  e.preventDefault();
-  // 拖文件夹（含文件夹内含 >1000 文件）：走 Entry 递归，无数量上限（Chrome/Edge/Safari）
-  const items = e.dataTransfer && e.dataTransfer.items;
-  if (items && items.length){
-    const out = [];
-    for (const it of items){
-      if (!(it.webkitGetAsEntry && it.kind === 'file')) continue;
-      const en = it.webkitGetAsEntry();
-      if (en) await walkFsEntry(en, '', out);
-    }
-    if (out.length){ SELECTED=[]; addFiles(out); return; }
-  }
-  if (e.dataTransfer.files.length){ SELECTED=[]; addFiles([...e.dataTransfer.files]); }
-});
-async function readAllEntries(rd){
-  const batch = [];
-  for (;;){
-    const ents = await new Promise((res, rej)=>rd.readEntries(res, rej));
-    if (!ents.length) break;
-    batch.push(...ents);
-  }
-  return batch;
-}
-async function walkFsEntry(en, base, out){
-  if (en.isFile){
-    out.push({path: base ? base+'/'+en.name : en.name,
-              file: await new Promise((res, rej)=>en.file(res, rej))});
-  } else if (en.isDirectory){
-    const rd = en.createReader();
-    const ents = await readAllEntries(rd);
-    const nb = base ? base+'/'+en.name : en.name;
-    for (const ch of ents) await walkFsEntry(ch, nb, out);
-  }
-}
-
-$('#upform').onsubmit = async e=>{
-  e.preventDefault();
-  if (!SELECTED.length){ toast('请先选择文件','err'); return; }
-  if (!chkPort($('#uport').value) || !chkProxy($('#uproxy').value) || !chkSched($('#usched').value)) return;
-  const fd = new FormData();
-  const isZip = SELECTED.length===1 && SELECTED[0].path.toLowerCase().endsWith('.zip');
-  const hasPath = SELECTED.some(f=>f.path.includes('/'));
-  fd.append('name', $('#uname').value.trim());
-  fd.append('entry', $('#uentry').value.trim());
-  fd.append('cmd', $('#ucmd').value.trim());
-  fd.append('port', $('#uport').value.trim());
-  fd.append('proxy_to', $('#uproxy').value.trim());
-  fd.append('schedule', $('#usched').value.trim());
-  fd.append('run_mode', $('#urunmode').value);
-  fd.append('mode', isZip?'zip':(hasPath?'dir':'single'));
-  SELECTED.forEach(f=> fd.append('files', f.file, f.path));
-  const btn = e.target.querySelector('button[type=submit]');
-  btn.disabled = true; btn.textContent = '上传中...';
-  try{
-    const d = await api('/api/upload', {method:'POST', body:fd});
-    toast(`已创建任务「${d.job.name}」`,'ok');
-    SELECTED = []; renderChips();
-    $('#uname').value=''; $('#uentry').value=''; $('#ucmd').value=''; $('#uport').value=''; $('#uproxy').value=''; $('#usched').value=''; $('#urunmode').value='auto';
-    document.querySelector('#tabs button[data-t=tasks]').click();
-    await refreshJobs();
-    try{
-      await api(`/api/jobs/${d.job.id}/start`, {method:'POST'});
-      await refreshJobs();
-      openLog(d.job.id, d.job.name);
-    }catch(err2){
-      toast(err2.message,'err');
-      // zip/目录上传找不到入口 → 直接弹编辑框让用户指定入口文件
-      if (/入口|无法确定|指定/.test(err2.message || '')){
-        openModal({id: d.job.id, title:'请指定入口文件', path:null});
-      }
-    }
-  }catch(err){ toast(err.message,'err'); }
-  finally{ btn.disabled=false; btn.textContent='创建任务'; }
-};
-
 /* ---------- 挂载目录 ---------- */
 let MPATH = '';
 async function loadTree(path){
@@ -689,19 +486,32 @@ async function loadTree(path){
         ${en.type==='dir'?`<button class="b" data-run="${esc(en.path)}">运行</button>`:''}
         ${canRun?`<button class="b primary" data-run="${esc(en.path)}">运行</button>`:''}
         ${en.type==='file'?`<a href="/api/fs/download?root=mount&path=${encodeURIComponent(en.path)}${TOKEN?`&token=${encodeURIComponent(TOKEN)}`:''}" class="b" style="border:1px solid var(--line);padding:5px 12px;border-radius:7px">下载</a>`:''}
+        <button class="b" style="border:1px solid #d55;color:#d55;padding:5px 12px;border-radius:7px" data-del="${esc(en.path)}">删除</button>
       </div>`;
     }).join('');
     $('#tree').innerHTML = html;
   }catch(err){ $('#tree').innerHTML = `<div class="crumb">${esc(err.message)}</div>`; }
 }
 function fmtS(n){ if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' K'; return (n/1048576).toFixed(1)+' M'; }
-$('#tree').addEventListener('click', e=>{
+$('#tree').addEventListener('click', async e=>{
   const a = e.target.closest('a[data-p]');
   if (a){ loadTree(a.dataset.p); return; }
   const nm = e.target.closest('.nm');
   if (nm){ if(nm.dataset.t==='dir') loadTree(nm.dataset.p); return; }
   const r = e.target.closest('[data-run]');
-  if (r){ openModal({title:'运行挂载路径', path:r.dataset.run}); }
+  if (r){ openModal({title:'运行挂载路径', path:r.dataset.run}); return; }
+  const del = e.target.closest('[data-del]');
+  if (del){
+    const p = del.dataset.del;
+    if (!confirm(`确定删除 ${CFG.mount_dir}/${p} ？\n目录会连同其中所有文件一起删除，不可恢复。`)) return;
+    del.disabled = true;
+    try{
+      await api('/api/fs/delete', {method:'POST', json:{root:'mount', path:p}});
+      toast('已删除 '+p,'ok');
+    }catch(err){ toast(err.message,'err'); }
+    await loadTree(MPATH);
+    return;
+  }
 });
 $('#mrefresh').onclick = ()=>loadTree(MPATH);
 
