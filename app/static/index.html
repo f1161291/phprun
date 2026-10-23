@@ -161,7 +161,7 @@ code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
     <div class="row2">
       <div class="card">
         <h3 style="margin:0 0 4px;font-size:15px">上传文件 / 目录 / zip</h3>
-        <div class="hint">单文件、多文件（保留相对路径）、整个目录、或一个 zip，都会落到独立任务工作区。</div>
+        <div class="hint">单文件、多文件（保留相对路径）、整个目录、或一个 zip，都会落到独立任务工作区。目录/文件夹选择与拖拽**无文件数限制**（Firefox 等旧浏览器选目录时受浏览器 1000 文件上限，可改传 zip）。</div>
         <div class="drop" id="drop" style="margin-top:14px">
           拖拽文件到此处，或
           <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
@@ -547,8 +547,9 @@ let SELECTED = [];   // {path, file}
 const drop = $('#drop');
 
 function addFiles(list){
-  for (const f of list){
-    const p = f.webkitRelativePath || f.name;
+  for (const it of list){
+    const f = it.file || it;
+    const p = it.path || f.webkitRelativePath || f.name;
     const i = SELECTED.findIndex(x=>x.path===p);
     if (i>=0) SELECTED[i] = {path:p, file:f}; else SELECTED.push({path:p, file:f});
   }
@@ -562,14 +563,72 @@ function renderChips(){
     : '';
 }
 $('#pickf').onclick = e=>{e.preventDefault(); $('#inpF').click();};
-$('#pickd').onclick = e=>{e.preventDefault(); $('#inpD').click();};
+$('#pickd').onclick = async e=>{
+  e.preventDefault();
+  // Chrome/Edge：用 File System Access API 选目录，没有 1000 文件上限
+  if (window.showDirectoryPicker){
+    try{
+      const dir = await window.showDirectoryPicker();
+      const out = [];
+      await walkDirHandle(dir, '', out);
+      if (out.length){ SELECTED=[]; addFiles(out); }
+    }catch(err){ if (err && err.name !== 'AbortError') toast('读取目录失败：'+err.message,'err'); }
+    return;
+  }
+  $('#inpD').click();   // 兜底（Firefox/Safari）：仍受浏览器 1000 文件上限
+};
+async function walkDirHandle(dh, base, out){
+  for await (const [name, h] of dh.entries()){
+    const rel = base ? base+'/'+name : name;
+    if (h.kind === 'file'){
+      const f = await h.getFile();
+      out.push({path: rel, file: f});
+    } else if (h.kind === 'directory'){
+      await walkDirHandle(h, rel, out);
+    }
+  }
+}
 $('#pickz').onclick = e=>{e.preventDefault(); $('#inpZ').click();};
 $('#inpF').onchange = e=>{ addFiles([...e.target.files]); e.target.value=''; };
 $('#inpD').onchange = e=>{ SELECTED=[]; addFiles([...e.target.files]); e.target.value=''; };
 $('#inpZ').onchange = e=>{ SELECTED=[]; addFiles([...e.target.files]); e.target.value=''; };
 ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('hot');}));
 ['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('hot');}));
-drop.addEventListener('drop', e=>{ if(e.dataTransfer.files.length){ SELECTED=[]; addFiles([...e.dataTransfer.files]); } });
+drop.addEventListener('drop', async e=>{
+  e.preventDefault();
+  // 拖文件夹（含文件夹内含 >1000 文件）：走 Entry 递归，无数量上限（Chrome/Edge/Safari）
+  const items = e.dataTransfer && e.dataTransfer.items;
+  if (items && items.length){
+    const out = [];
+    for (const it of items){
+      if (!(it.webkitGetAsEntry && it.kind === 'file')) continue;
+      const en = it.webkitGetAsEntry();
+      if (en) await walkFsEntry(en, '', out);
+    }
+    if (out.length){ SELECTED=[]; addFiles(out); return; }
+  }
+  if (e.dataTransfer.files.length){ SELECTED=[]; addFiles([...e.dataTransfer.files]); }
+});
+async function readAllEntries(rd){
+  const batch = [];
+  for (;;){
+    const ents = await new Promise((res, rej)=>rd.readEntries(res, rej));
+    if (!ents.length) break;
+    batch.push(...ents);
+  }
+  return batch;
+}
+async function walkFsEntry(en, base, out){
+  if (en.isFile){
+    out.push({path: base ? base+'/'+en.name : en.name,
+              file: await new Promise((res, rej)=>en.file(res, rej))});
+  } else if (en.isDirectory){
+    const rd = en.createReader();
+    const ents = await readAllEntries(rd);
+    const nb = base ? base+'/'+en.name : en.name;
+    for (const ch of ents) await walkFsEntry(ch, nb, out);
+  }
+}
 
 $('#upform').onsubmit = async e=>{
   e.preventDefault();
@@ -591,14 +650,22 @@ $('#upform').onsubmit = async e=>{
   btn.disabled = true; btn.textContent = '上传中...';
   try{
     const d = await api('/api/upload', {method:'POST', body:fd});
-    toast(`已创建任务「${d.job.name}」，可直接启动`,'ok');
+    toast(`已创建任务「${d.job.name}」`,'ok');
     SELECTED = []; renderChips();
     $('#uname').value=''; $('#uentry').value=''; $('#ucmd').value=''; $('#uport').value=''; $('#uproxy').value=''; $('#usched').value=''; $('#urunmode').value='auto';
     document.querySelector('#tabs button[data-t=tasks]').click();
     await refreshJobs();
-    await api(`/api/jobs/${d.job.id}/start`, {method:'POST'});
-    await refreshJobs();
-    openLog(d.job.id, d.job.name);
+    try{
+      await api(`/api/jobs/${d.job.id}/start`, {method:'POST'});
+      await refreshJobs();
+      openLog(d.job.id, d.job.name);
+    }catch(err2){
+      toast(err2.message,'err');
+      // zip/目录上传找不到入口 → 直接弹编辑框让用户指定入口文件
+      if (/入口|无法确定|指定/.test(err2.message || '')){
+        openModal({id: d.job.id, title:'请指定入口文件', path:null});
+      }
+    }
   }catch(err){ toast(err.message,'err'); }
   finally{ btn.disabled=false; btn.textContent='创建任务'; }
 };

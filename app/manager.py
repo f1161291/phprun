@@ -884,7 +884,8 @@ class JobManager:
             return files[0]
         rels = ", ".join(str(p.relative_to(wd)) for p in files[:8])
         raise RuntimeError(
-            f"无法确定入口：找到 {len(files)} 个 {suffix}（{rels}...），请指定入口文件")
+            f"无法确定入口：找到 {len(files)} 个 {suffix}（{rels}...）。"
+            "请在任务编辑框的「入口文件」里填写相对工作目录的路径，如 index.php 或 myapp/main.py")
 
     # ---------- composer（PHP 依赖） ----------
     @staticmethod
