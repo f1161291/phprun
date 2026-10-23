@@ -40,6 +40,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
+# docker CLI：配合宿主机挂载 /var/run/docker.sock 使用，容器内可直接控制宿主机 Docker
+# （静态二进制，按构建架构 amd64/arm64 自动选择对应包）
+ARG TARGETARCH
+ARG DOCKER_CLI_VERSION=27.5.1
+RUN set -ex; \
+    case "${TARGETARCH}" in \
+      amd64) DOCKER_ARCH=x86_64 ;; \
+      arm64) DOCKER_ARCH=aarch64 ;; \
+      *) echo "unsupported TARGETARCH ${TARGETARCH}"; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" -o /tmp/docker.tgz \
+    && tar -xzf /tmp/docker.tgz -C /tmp \
+    && mv /tmp/docker/docker /usr/local/bin/docker \
+    && rm -rf /tmp/docker /tmp/docker.tgz \
+    && docker --version
+
 WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip
