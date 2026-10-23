@@ -1,7 +1,7 @@
 services:
   phprun:
     image: ghcr.io/f1161291/phprun:latest
-    image: f1161291/phprun
+#    image: f1161291/phprun
     container_name: phprun
     restart: unless-stopped
     network_mode: bridge
