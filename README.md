@@ -51,7 +51,7 @@ docker run -d --name phprun \
 「上传运行」页可：单文件 / 多文件（保留相对路径）/ 整个目录 / zip（自动解压）/ 拖拽。创建后自动启动并打开日志。批处理跑完显示 `exited`，Web 服务保持 `running`。
 
 ### 2. 挂载目录运行
-「挂载目录」页浏览 `/mount`（宿主机 `./scripts`），点目录或 `.php / .py / .js` 文件右侧的「运行」即可。
+「挂载目录」页浏览 `/mount`（宿主机 `./scripts`），点目录或 `.php / .py / .js` 文件右侧的「运行」即可。页面上也可直接**上传文件 / 目录 / zip** 到当前目录（勾选后 zip 自动解压），写入的是宿主机 `./scripts` 对应位置。
 
 ### 3. 端口约定
 启动任务时注入环境变量：
@@ -154,6 +154,7 @@ docker run -d --name phprun \
 | POST | `/api/upload` | multipart 上传（`files` 多值；`port`、`proxy_to`、`schedule`、`run_mode`，`mode`=single/dir/zip） |
 | GET | `/api/fs?root=mount\|upload&path=` | 目录列表 |
 | GET | `/api/fs/download` | 下载 |
+| POST | `/api/fs/upload` | 上传到挂载目录/上传目录（`root`=mount\|upload、`path`=目标子目录、`unzip`=1 自动解压 zip、`files` 多值保留相对路径） |
 | POST | `/api/mounted/run` | 运行挂载路径，body: `{path,name,entry,cmd,port,proxy_to,schedule,mode}` |
 | GET | `/api/jobs` | 任务列表（含 `mode`、`port_pref`、`proxy_to`、`schedule`） |
 | POST | `/api/jobs/{id}/start\|stop\|restart` | 启停重启 |

@@ -97,6 +97,71 @@ def download(root: str = "upload", path: str = ""):
     return FileResponse(target, filename=target.name)
 
 
+@router.post("/fs/upload")
+async def fs_upload(
+    root: str = Form("mount"),   # mount=挂载目录 / upload=上传目录（任务工作区）
+    path: str = Form(""),        # 目标子目录（相对 root），空=根目录
+    unzip: str = Form("0"),      # 1=上传的 .zip 自动解压（解压后删除 zip）
+    files: List[UploadFile] = File(...),
+):
+    """把文件直接上传到挂载目录（/mount）或上传目录，可保留目录结构、可解压 zip。"""
+    base = MOUNT_DIR if root == "mount" else JOBS_DIR
+    rel = _safe_relpath(path)
+    target = base / rel if rel else base
+    if not _under(target, base):
+        raise HTTPException(400, "路径越界")
+    if not target.exists():
+        target.mkdir(parents=True, exist_ok=True)
+    if not target.is_dir():
+        raise HTTPException(400, "目标不是目录")
+    if not files:
+        raise HTTPException(400, "没有收到文件")
+
+    total = 0
+    for f in files:
+        total += len(await _read(f))
+        if total > MAX_UPLOAD:
+            raise HTTPException(413, f"超过大小限制 {MAX_UPLOAD // 1024 // 1024}MB")
+
+    written = 0
+    for f in files:
+        rn = _safe_relpath(f.filename or "")
+        if not rn:
+            continue
+        dest = target / rn
+        if not _under(dest, target):
+            raise HTTPException(400, f"非法路径: {rn}")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest, "wb") as out:
+            shutil.copyfileobj(f.file, out)
+        written += 1
+        f.file.close()
+
+    if unzip == "1":
+        for f in files:
+            rn = _safe_relpath(f.filename or "")
+            z = target / rn if rn else None
+            if not z or not rn.lower().endswith(".zip") or not z.is_file():
+                continue
+            with zipfile.ZipFile(z) as zf:
+                for info in zf.infolist():
+                    rz = _safe_relpath(info.filename)
+                    if not rz:
+                        continue
+                    out = target / rz
+                    if not _under(out, target):
+                        continue
+                    if info.is_dir():
+                        out.mkdir(parents=True, exist_ok=True)
+                        continue
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(info) as src, open(out, "wb") as fh:
+                        shutil.copyfileobj(src, fh)
+            z.unlink(missing_ok=True)
+
+    return {"written": written, "path": rel}
+
+
 # ---------------- 上传 ----------------
 @router.post("/upload")
 async def upload(

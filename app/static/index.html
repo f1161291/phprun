@@ -237,9 +237,28 @@ echo "done, port=" . (getenv("PORT") ?: "-") . "\n";</pre>
       <span class="meta" id="mountroot"></span>
       <div class="spacer"></div>
       <button class="b" id="mrefresh">刷新</button>
+      <button class="b primary" id="mupbtn">上传文件</button>
+      <button class="b primary" id="mupdirbtn">上传目录</button>
+      <input type="file" id="mupinp" multiple hidden>
+      <input type="file" id="mupdirinp" webkitdirectory hidden>
+    </div>
+    <div class="card hidden" id="muppanel" style="margin-bottom:12px">
+      <div class="row2">
+        <div>
+          <div style="margin-bottom:6px"><b id="mupcount"></b></div>
+          <div id="mupchips" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        </div>
+        <div style="text-align:right;white-space:nowrap">
+          <label style="font-size:13px"><input type="checkbox" id="mupunzip"> 上传的 zip 自动解压</label>
+          <div style="margin-top:10px">
+            <button class="b" id="mupcancel">取消</button>
+            <button class="b primary" id="mupgo">确认上传</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="tree" id="tree"><div class="crumb">加载中...</div></div>
-    <div class="hint">挂载目录来自 <code>docker-compose</code> 的 <code>./scripts:/mount</code>，宿主机改动即时生效。</div>
+    <div class="hint">挂载目录来自 <code>docker-compose</code> 的 <code>./scripts:/mount</code>，宿主机改动即时生效；也可以在这里直接上传文件 / 目录 / zip。</div>
   </section>
 
   <!-- 包 -->
@@ -618,6 +637,39 @@ $('#tree').addEventListener('click', e=>{
   if (r){ openModal({title:'运行挂载路径', path:r.dataset.run}); }
 });
 $('#mrefresh').onclick = ()=>loadTree(MPATH);
+
+/* ---------- 挂载目录上传 ---------- */
+let MUP = [];
+$('#mupbtn').onclick = ()=>{ MUP=[]; $('#mupinp').click(); };
+$('#mupdirbtn').onclick = ()=>{ MUP=[]; $('#mupdirinp').click(); };
+$('#mupinp').onchange = e=>{ setMup([...e.target.files]); e.target.value=''; };
+$('#mupdirinp').onchange = e=>{ setMup([...e.target.files]); e.target.value=''; };
+function setMup(list){
+  MUP = list.map(f=>({path: f.webkitRelativePath || f.name, file:f}));
+  if (!MUP.length) return;
+  $('#mupcount').textContent = `已选 ${MUP.length} 个文件 → 上传到 ${CFG.mount_dir}${MPATH ? '/'+MPATH : ''}`;
+  $('#mupchips').innerHTML = MUP.slice(0,30).map(f=>`<span class="chip">${esc(f.path)}</span>`).join('') +
+    (MUP.length>30 ? `<span class="chip">…还有 ${MUP.length-30} 个</span>` : '');
+  $('#muppanel').classList.remove('hidden');
+}
+$('#mupcancel').onclick = ()=>{ MUP=[]; $('#muppanel').classList.add('hidden'); };
+$('#mupgo').onclick = async ()=>{
+  if (!MUP.length){ toast('请先选择文件','err'); return; }
+  const btn = $('#mupgo');
+  btn.disabled = true; btn.textContent = '上传中...';
+  try{
+    const fd = new FormData();
+    fd.append('root','mount');
+    fd.append('path', MPATH);
+    fd.append('unzip', $('#mupunzip').checked ? '1' : '0');
+    MUP.forEach(f=> fd.append('files', f.file, f.path));
+    const d = await api('/api/fs/upload', {method:'POST', body:fd});
+    toast(`已上传 ${d.written} 个文件`,'ok');
+    MUP=[]; $('#muppanel').classList.add('hidden');
+    await loadTree(MPATH);
+  }catch(err){ toast(err.message,'err'); }
+  finally{ btn.disabled=false; btn.textContent='确认上传'; }
+};
 
 function chkPort(v){
   v = String(v ?? '').trim();
