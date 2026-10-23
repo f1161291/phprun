@@ -1,0 +1,10 @@
+.git
+.gitignore
+.github
+__pycache__
+*.pyc
+*.bak
+**/vendor/
+data
+scripts/央视频
+*.md

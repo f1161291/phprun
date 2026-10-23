@@ -1,0 +1,36 @@
+# ---- 控制面 ----
+fastapi
+uvicorn[standard]
+python-multipart
+httpx
+
+# ---- Web 框架 ----
+flask
+django
+requests
+
+# ---- 数据处理 ----
+numpy
+pandas
+openpyxl
+xlrd
+pyyaml
+jieba
+
+# ---- 爬虫 ----
+beautifulsoup4
+lxml
+selenium
+parsel
+
+# ---- 基础工具 ----
+python-dotenv
+loguru
+click
+pymysql
+redis
+pika
+
+# 可选：playwright 浏览器体积大，默认注释。
+# 构建时加 --build-arg INSTALL_PLAYWRIGHT=1 并取消下方注释生效
+# playwright

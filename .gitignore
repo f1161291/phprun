@@ -1,0 +1,25 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ---- 运行时数据（上传 / 任务工作区 / 日志 / pid / composer 全局配置 / 任务登记）----
+data/*
+!data/jobs/
+data/jobs/*
+!data/jobs/.gitkeep
+
+# ---- Composer 依赖（由 composer install 生成，不入库）----
+**/vendor/
+
+# ---- 备份与临时文件 ----
+*.bak
+*.swp
+*~
+
+# ---- 个人脚本（不公开）----
+scripts/央视频/
+
+# ---- IDE ----
+.idea/
+.vscode/

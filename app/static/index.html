@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phprun 控制台</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+  --fg:#e6e9ef; --dim:#98a2b3; --acc:#4f8cff; --ok:#2ecc71; --warn:#f1c40f; --err:#ff5f56;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+header{display:flex;align-items:center;gap:18px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.5px}
+nav{display:flex;gap:6px}
+nav button{background:transparent;border:1px solid transparent;color:var(--dim);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:14px}
+nav button.on{background:var(--panel2);border-color:var(--line);color:var(--fg)}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel)}
+.seg button{background:transparent;border:none;color:var(--dim);padding:7px 18px;cursor:pointer;font-size:13px}
+.seg button.on{background:var(--panel2);color:var(--fg)}
+.spacer{flex:1}
+.meta{color:var(--dim);font-size:12px}
+main{padding:20px;max-width:1280px;margin:0 auto}
+.hidden{display:none!important}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.job .top{display:flex;align-items:center;gap:10px}
+.job h3{margin:0;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+.ptag{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--acc);background:rgba(61,147,226,.12);border:1px solid rgba(61,147,226,.45);padding:4px 7px;border-radius:6px;flex:none}
+.stag{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#ffce6a;background:rgba(255,206,106,.1);border:1px solid rgba(255,206,106,.4);padding:4px 7px;border-radius:6px;flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge.running{color:#0c1a10;background:rgba(46,204,113,.18);border-color:rgba(46,204,113,.4)}
+.badge.exited{color:var(--fg);background:rgba(152,162,179,.15)}
+.badge.error,.badge.stopping{color:#fff;background:rgba(255,95,86,.22);border-color:rgba(255,95,86,.5)}
+.badge.starting{color:#1a1500;background:rgba(241,196,15,.2);border-color:rgba(241,196,15,.4)}
+.dot{width:8px;height:8px;border-radius:50%;background:#555;flex:none}
+.dot.running{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.dot.error{background:var(--err)}
+.dot.starting,.dot.stopping{background:var(--warn)}
+.rows{margin-top:0;font-size:12.5px;color:var(--dim);display:flex;flex-direction:column;gap:5px;flex:1;min-height:0;overflow:hidden}
+.rows b{color:var(--fg);font-weight:500}
+.rows .ln{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rows .err{color:#ffb3af}
+.acts{margin-top:auto;display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+.acts button.b{padding:3px 10px;font-size:12px;flex:none}
+.chk{margin:0 0 0 auto;display:flex;align-items:center;gap:5px;font-size:12px;color:var(--dim);cursor:pointer;user-select:none;flex:none;white-space:nowrap}
+.chk input{accent-color:var(--acc);cursor:pointer}
+button.b{background:var(--panel2);border:1px solid var(--line);color:var(--fg);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:13px}
+button.b:hover{border-color:var(--acc);color:var(--acc)}
+button.b.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+button.b.danger:hover{border-color:var(--err);color:var(--err)}
+button.b:disabled{opacity:.4;cursor:not-allowed}
+form label{display:block;font-size:12px;color:var(--dim);margin:12px 0 5px}
+input[type=text],input[type=password],select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--fg);padding:8px 10px;border-radius:8px;font-size:13px;font-family:inherit}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--acc)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--dim);background:var(--panel);transition:.15s}
+.drop.hot{border-color:var(--acc);color:var(--acc);background:rgba(79,140,255,.06)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;max-height:180px;overflow:auto}
+.chip{font-size:12px;background:var(--panel2);border:1px solid var(--line);padding:3px 9px;border-radius:6px;color:var(--dim)}
+.chip b{color:var(--fg);font-weight:500}
+.bar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.tree{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tree .r{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);font-size:13px}
+.tree .r:last-child{border-bottom:none}
+.tree .r:hover{background:var(--panel2)}
+.tree .nm{flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree .nm:hover{color:var(--acc)}
+.crumb{padding:10px 14px;color:var(--dim);font-size:13px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.crumb a{cursor:pointer}
+.sz{color:var(--dim);font-size:12px;width:80px;text-align:right}
+/* 双栏布局：左=任务列表(两列)，右=日志(一列)，两栏标题条横向平齐 */
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,42%);gap:16px;height:calc(100vh - 112px);min-height:440px}
+.pane{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.pane-hd{display:flex;align-items:center;gap:10px;flex:none;min-height:46px;padding:8px 14px;background:var(--panel2);border-bottom:1px solid var(--line);font-size:14px;flex-wrap:wrap}
+.pane-hd strong{font-weight:600}
+.pane-bd{flex:1;overflow:auto;padding:14px;min-height:0}
+.pane-bd.log{display:flex;flex-direction:column;padding:0;background:#0b0d11}
+/* 任务列表：单列，卡片等宽等高、不裁切 */
+.jgrid{display:grid;grid-template-columns:1fr;grid-auto-rows:1fr;gap:10px;align-content:start}
+.jgrid .card{min-height:172px;display:flex;flex-direction:column;gap:8px;padding:12px 14px;overflow:hidden;cursor:default}
+.jgrid .job h3{font-size:14px}
+.jgrid .job .rows{line-height:1.55}
+#logempty{flex:none;padding:18px 14px;color:var(--dim);font-size:13px}
+#logbody{flex:1;overflow:auto;padding:12px 14px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#c9d1d9;white-space:pre-wrap;word-break:break-all}
+#logbody .h{color:#6a9955}
+@media (max-width:1180px){
+  .split{grid-template-columns:1fr;height:auto}
+  .jgrid{grid-template-columns:1fr}
+  .pane-bd.log{min-height:320px}
+}
+#toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center}
+.tst{background:var(--panel2);border:1px solid var(--line);padding:9px 16px;border-radius:9px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+.tst.err{border-color:var(--err);color:#ffb3af}
+.tst.ok{border-color:var(--ok);color:#9ff3c1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:60}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;width:min(520px,94vw)}
+.modal h3{margin:0 0 4px;font-size:15px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font-weight:500;font-size:12px}
+tr:hover td{background:var(--panel2)}
+.pkgwrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:auto;max-height:60vh}
+pre.out{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.5 ui-monospace,monospace;color:#c9d1d9;white-space:pre-wrap;max-height:240px;overflow:auto}
+.hint{font-size:12px;color:var(--dim);margin-top:6px}
+code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Phprun <span style="font-weight:400;color:var(--dim);font-size:12px">PHP · Python · Node</span></h1>
+  <nav id="tabs">
+    <button data-t="tasks" class="on">任务</button>
+    <button data-t="upload">上传运行</button>
+    <button data-t="mount">挂载目录</button>
+    <button data-t="pkgs">包管理</button>
+  </nav>
+  <div class="spacer"></div>
+  <span class="meta" id="cfg"></span>
+  <button class="b" id="tokbtn">令牌</button>
+</header>
+
+<main>
+  <!-- 任务：左列表 + 右日志 -->
+  <section id="tab-tasks">
+    <div class="split">
+      <div class="pane">
+        <div class="pane-hd">
+          <strong>任务列表</strong>
+          <span class="meta" id="sum"></span>
+          <div class="spacer"></div>
+          <button class="b" id="refresh">刷新</button>
+          <label class="meta"><input type="checkbox" id="auto" checked> 自动刷新</label>
+        </div>
+        <div class="pane-bd">
+          <div class="jgrid" id="jobs"></div>
+          <div class="card hidden" id="nojobs" style="text-align:center;color:var(--dim)">还没有任务，去「上传运行」或「挂载目录」新建一个</div>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-hd">
+          <strong>运行日志</strong>
+          <span class="meta" id="logtitle">未选择任务</span>
+          <span class="badge" id="logstatus"></span>
+          <div class="spacer"></div>
+          <button class="b" id="logclear">清空</button>
+          <button class="b" id="logclose">断开</button>
+        </div>
+        <div class="pane-bd log">
+          <div id="logempty">点击左侧任务卡片上的「日志」按钮，这里显示实时输出</div>
+          <div id="logbody" class="hidden"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 上传 -->
+  <section id="tab-upload" class="hidden">
+    <div class="row2">
+      <div class="card">
+        <h3 style="margin:0 0 4px;font-size:15px">上传文件 / 目录 / zip</h3>
+        <div class="hint">单文件、多文件（保留相对路径）、整个目录、或一个 zip，都会落到独立任务工作区。</div>
+        <div class="drop" id="drop" style="margin-top:14px">
+          拖拽文件到此处，或
+          <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+            <button class="b" id="pickf">选择文件</button>
+            <button class="b" id="pickd">选择目录</button>
+            <button class="b" id="pickz">选择 zip</button>
+          </div>
+        </div>
+        <input type="file" id="inpF" multiple class="hidden">
+        <input type="file" id="inpD" webkitdirectory directory multiple class="hidden">
+        <input type="file" id="inpZ" accept=".zip" class="hidden">
+        <div class="chips" id="chips"></div>
+        <form id="upform">
+          <div class="row2">
+            <div><label>任务名称</label><input type="text" id="uname" placeholder="留空取文件名"></div>
+            <div><label>入口文件（可选）</label><input type="text" id="uentry" placeholder="如 index.php / script.php / main.py"></div>
+          </div>
+          <label>自定义命令（可选，优先于入口）</label>
+          <input type="text" id="ucmd" placeholder="如 php think run 或 python app.py 或 node server.js">
+          <div class="hint">不填入口时自动识别：<code>index.php/main.php/app.php · main.py/app.py · main.js/app.js</code>，否则目录内唯一脚本。<b>语言优先级 PHP &gt; Python &gt; Node</b>；有 <code>index.php</code>（或 <code>public/index.php</code>）时自动按 Web 启动。</div>
+          <label>PHP 运行模式（仅 .php 任务生效，py/js 忽略）</label>
+          <select id="urunmode">
+            <option value="auto">自动 —— 有 index.php / public/index.php 就用 php -S 起 Web，否则按 CLI 跑</option>
+            <option value="web">Web —— php -S 0.0.0.0:端口 -t 文档根（Laravel/ThinkPHP/纯 index.php）</option>
+            <option value="cli">CLI —— php 脚本.php（批处理 / 长驻进程）</option>
+          </select>
+          <label>指定端口（可选）</label>
+          <input type="number" id="uport" min="1" placeholder="留空 = 自动分配（按启动顺序）">
+          <div class="hint">须在页首显示的端口段内；指定端口已被占用时启动会直接报错。Web 服务读 <code>getenv("PORT")</code>（PHP）或 <code>os.environ["PORT"]</code>（Python）即可拿到该端口。</div>
+          <label>反代内部端口（可选）</label>
+          <input type="number" id="uproxy" min="1" placeholder="如 8766 —— 脚本自己监听的端口，留空 = 不反代">
+          <div class="hint">脚本写死了监听端口（如 <code>8766</code>）又不想改脚本时填这里：面板把分配到的端口（如 8600）反代到 <code>127.0.0.1:8766</code>，外部只暴露 8600。</div>
+          <label>定时运行（cron，5 段，可选）</label>
+          <input type="text" id="usched" placeholder="如 0 8 * * *（每天 08:00），留空 = 不定时">
+          <div class="hint">格式 <code>分 时 日 月 周</code>：如 <code>*/5 * * * *</code> 每5分钟、<code>0 8 * * *</code> 每天8点、<code>30 2 * * 0</code> 每周日2:30。到点自动启动，正在运行则跳过。</div>
+          <div style="margin-top:16px"><button class="b primary" type="submit">创建任务</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:15px">约定</h3>
+        <div class="hint" style="line-height:1.9">
+          1. 每个任务启动时分配一个端口，通过环境变量 <code>PORT</code> / <code>HOST</code> 传入；PHP 里用 <code>getenv("PORT")</code> 读，Python 用 <code>os.environ["PORT"]</code>，Node 用 <code>process.env.PORT</code>。<br>
+          2. 创建或编辑时可<b>指定端口</b>，留空按启动顺序自动分配；端口池耗尽先停旧任务，或在 compose 里扩大范围。<br>
+          3. 批处理脚本忽略端口即可，跑完状态自动变 <b>exited</b>；Web 服务保持 <b>running</b>。<br>
+          4. <b>PHP 运行模式</b>：<code>auto</code> 看有没有 <code>index.php</code>（含 <code>public/</code>）决定 Web/CLI；可强制 <code>web</code>（<code>php -S</code>，文档根优先 <code>public/</code>）或 <code>cli</code>（<code>php 脚本.php</code>）。<br>
+          5. PHP 项目带 <code>composer.json</code> 时，启动前自动 <code>composer install</code>；运行报缺 <code>vendor/autoload.php</code> 或缺类时自动 <code>composer install</code> / <code>composer require</code> 并重启一次（日志有「自动装依赖」标记）。<br>
+          6. Python 缺包同样自动 <code>pip install</code>；三种语言共用一套面板与端口池。<br>
+          7. 入口文件识别顺序：自定义命令 &gt; 指定入口 &gt; 顶层惯用名（<code>index.php/main.php/app.php · main.py · main.js</code>）&gt; 顶层唯一脚本 &gt; 深层惯用名 &gt; 全目录唯一脚本。<br>
+          8. 填了 <b>cron 定时</b> 的任务到点自动启动（每分钟最多一次）；填了<b>反代内部端口</b>时把对外端口 TCP 转发到脚本自己监听的端口。
+        </div>
+        <div class="hint" style="margin-top:14px">PHP Web 示例（有 <code>index.php</code> 即自动 <code>php -S</code>，无需改代码）：</div>
+        <pre class="out" style="margin-top:8px">&lt;?php
+header("Content-Type: text/plain; charset=utf-8");
+$port = getenv("PORT") ?: "8600";
+echo "hello from php, listen " . getenv("HOST") . ":$port\n";
+echo "PHP " . PHP_VERSION . "\n";</pre>
+        <div class="hint" style="margin-top:14px">PHP CLI 示例（单文件批处理，跑完自动 exited）：</div>
+        <pre class="out" style="margin-top:8px">&lt;?php
+for ($i = 1; $i &lt;= 3; $i++) {
+    echo "step $i / 3 ...\n";
+    flush();
+    sleep(1);
+}
+echo "done, port=" . (getenv("PORT") ?: "-") . "\n";</pre>
+        <div class="hint" style="margin-top:14px">Python / Node 任务同理：<code>os.environ["PORT"]</code> / <code>process.env.PORT</code>，按扩展名自动选解释器。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 挂载 -->
+  <section id="tab-mount" class="hidden">
+    <div class="bar">
+      <span class="meta" id="mountroot"></span>
+      <div class="spacer"></div>
+      <button class="b" id="mrefresh">刷新</button>
+    </div>
+    <div class="tree" id="tree"><div class="crumb">加载中...</div></div>
+    <div class="hint">挂载目录来自 <code>docker-compose</code> 的 <code>./scripts:/mount</code>，宿主机改动即时生效。</div>
+  </section>
+
+  <!-- 包 -->
+  <section id="tab-pkgs" class="hidden">
+    <div class="bar" style="margin-bottom:12px">
+      <div class="seg" id="pkgtabs">
+        <button class="on" data-k="py">Python · pip</button>
+        <button data-k="php">PHP · composer</button>
+      </div>
+      <div class="spacer"></div>
+      <span class="meta" id="envinfo">运行环境加载中...</span>
+    </div>
+
+    <!-- Python（镜像全局 pip 环境） -->
+    <div id="pkgs-py">
+      <div class="card" style="margin-bottom:14px">
+        <div class="row2">
+          <div>
+            <label style="display:block;font-size:12px;color:var(--dim);margin-bottom:5px">pip 安装 / pip 卸载（装进镜像全局环境，所有任务可用）</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="pyspec" placeholder="requests 或 requests==2.31.0 或 beautifulsoup4">
+              <button class="b primary" id="pyinstall" style="white-space:nowrap">安装</button>
+              <button class="b danger" id="pyremove" style="white-space:nowrap">卸载</button>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--dim);margin-bottom:5px">搜索已安装</label>
+            <input type="text" id="pyfilter" placeholder="输入包名过滤">
+          </div>
+        </div>
+        <pre class="out hidden" id="pyout" style="margin-top:12px"></pre>
+        <div class="hint" id="pysum">已安装 pip 包：加载中...</div>
+        <div class="hint">pip包装在<b>镜像的全局 <code>site-packages</code></b>：所有任务共用，脚本直接 <code>import requests</code> 即可；缺包时面板也会自动 <code>pip install</code> 并重启一次（日志「自动装依赖」）。标准库与已随 requirements.txt 预装的 flask/django/numpy/pandas/bs4/lxml/jieba 等都在这列里。</div>
+      </div>
+      <div class="pkgwrap">
+        <table><thead><tr><th>包</th><th>版本</th></tr></thead><tbody id="pytbody"><tr><td colspan="2">加载中...</td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- PHP（composer，按任务 vendor/） -->
+    <div id="pkgs-php" class="hidden">
+      <div class="card" style="margin-bottom:14px">
+        <div class="row2">
+          <div>
+            <label style="display:block;font-size:12px;color:var(--dim);margin-bottom:5px">作用于任务（composer 按项目安装）</label>
+            <select id="pjid"><option value="">最近创建的任务</option></select>
+            <div class="hint" id="pwdhint">加载中...</div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--dim);margin-bottom:5px">安装范围</label>
+            <div class="hint" style="margin-top:0">composer 包按<b>任务</b>安装到该任务的 <code>vendor/</code>（脚本需 <code>require "vendor/autoload.php"</code>）；PHP 扩展（mysqli/gd/redis…）在镜像里已装，新增扩展需重建镜像。</div>
+          </div>
+        </div>
+        <div class="row2" style="margin-top:12px">
+          <div>
+            <label style="display:block;font-size:12px;color:var(--dim);margin-bottom:5px">composer 安装（require，装进该任务的 vendor/）</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="pspec" placeholder="monolog/monolog 或 guzzlehttp/guzzle:^7.0 --dev">
+              <button class="b primary" id="pinstall" style="white-space:nowrap">安装</button>
+              <button class="b danger" id="premove" style="white-space:nowrap">移除</button>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--dim);margin-bottom:5px">搜索已安装</label>
+            <input type="text" id="pfilter" placeholder="输入包名过滤">
+          </div>
+        </div>
+        <pre class="out hidden" id="pout" style="margin-top:12px"></pre>
+        <div class="hint" id="reqhint">composer.json 依赖：—</div>
+      </div>
+      <div class="pkgwrap">
+        <table><thead><tr><th>包</th><th>版本</th><th>说明</th></tr></thead><tbody id="ptbody"><tr><td colspan="3">加载中...</td></tr></tbody></table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 通用弹窗 -->
+<div class="modal hidden" id="modal">
+  <div class="box">
+    <h3 id="mtitle">运行</h3>
+    <div class="hint" id="mdesc"></div>
+    <form id="mform">
+      <label>任务名称</label><input type="text" id="mname">
+      <label>入口文件（相对工作目录，可选）</label><input type="text" id="mentry" placeholder="留空自动识别">
+      <label>自定义命令（可选）</label><input type="text" id="mcmd">
+      <label>指定端口（可选）</label><input type="number" id="mport" min="1" placeholder="留空 = 自动分配">
+      <label>反代内部端口（可选）</label><input type="number" id="mproxy" min="1" placeholder="如 8766（脚本自己监听），留空 = 不反代">
+      <label>定时运行（cron，5 段，可选）</label><input type="text" id="msched" placeholder="如 0 8 * * *，留空 = 不定时">
+      <label>PHP 运行模式（仅 .php 生效）</label>
+      <select id="mrunmode">
+        <option value="auto">自动（有 index.php 走 Web，否则 CLI）</option>
+        <option value="web">Web（php -S 内置服务器）</option>
+        <option value="cli">CLI（php 脚本.php）</option>
+      </select>
+      <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="b" type="button" id="mcancel">取消</button>
+        <button class="b primary" type="submit">确定</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let TOKEN = localStorage.getItem('pyrun_token') || '';
+let CFG = {port_range:[0,0], panel_port:8000, mount_dir:''};
+
+function toast(msg, type){
+  const d = document.createElement('div');
+  d.className = 'tst ' + (type||'');
+  d.textContent = msg;
+  $('#toast').appendChild(d);
+  setTimeout(()=>d.remove(), 3500);
+}
+
+async function api(path, opt={}){
+  opt = Object.assign({headers:{}}, opt);
+  const h = opt.headers;
+  if (TOKEN) h['X-Token'] = TOKEN;
+  if (opt.json !== undefined){ h['Content-Type']='application/json'; opt.body = JSON.stringify(opt.json); delete opt.json; }
+  const res = await fetch(path, opt);
+  if (res.status === 401){ askToken(); throw new Error('需要令牌'); }
+  let data = null;
+  try { data = await res.json(); } catch(e){}
+  if (!res.ok) throw new Error((data && data.detail) || res.statusText);
+  return data;
+}
+
+function askToken(){
+  const t = prompt('请输入访问令牌（PANEL_TOKEN）：', TOKEN || '');
+  if (t !== null){ TOKEN = t.trim(); localStorage.setItem('pyrun_token', TOKEN); }
+}
+
+$('#tokbtn').onclick = askToken;
+
+/* ---------- 标签页 ---------- */
+document.querySelectorAll('#tabs button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
+    $('#tab-' + b.dataset.t).classList.remove('hidden');
+    if (b.dataset.t==='mount') loadTree();
+    if (b.dataset.t==='pkgs'){ loadEnv(); loadPyPkgs(); loadPkgs(); }
+  };
+});
+
+/* ---------- 任务列表 ---------- */
+let JOBS = [], LOG_ES = null, LOG_ID = null;
+
+const STAT = {created:'已创建', starting:'启动中', running:'运行中', stopping:'停止中', stopped:'已停止', exited:'已完成', error:'异常'};
+
+function host(){ return location.hostname; }
+
+function renderJobs(){
+  const box = $('#jobs');
+  $('#nojobs').classList.toggle('hidden', JOBS.length>0);
+  $('#sum').textContent = JOBS.length ? `共 ${JOBS.length} 个任务，运行中 ${JOBS.filter(j=>j.status==='running').length}` : '';
+  box.innerHTML = JOBS.map(j=>{
+    const running = j.status==='running';
+    const act = running
+      ? `<button class="b" data-a="stop" data-id="${j.id}">停止</button><button class="b" data-a="restart" data-id="${j.id}">重启</button>`
+      : `<button class="b primary" data-a="start" data-id="${j.id}">启动</button>`;
+    const meta = [
+      j.source === 'mount' ? '挂载' : '上传',
+      `入口 ${esc(j.entry || '自动')}`,
+      `PID ${j.pid || '-'}`,
+      `退出 ${j.exit_code ?? '-'}`,
+      j.uptime ? `运行 ${fmtU(j.uptime)}` : '',
+      (j.entry || '').toLowerCase().endsWith('.php') ? `模式 ${j.mode || 'auto'}` : ''
+    ].filter(Boolean).join(' · ');
+    const line2 = running && j.port
+      ? `<a href="http://${host()}:${j.port}/" target="_blank">直连 :${j.port}</a> · ` +
+        `<a href="/proxy/${j.id}/" target="_blank">反代 /proxy/${j.id.slice(0,8)}</a>` +
+        (j.error ? `<span class="err"> · ${esc(j.error)}</span>` : '')
+      : (j.error
+          ? `<span class="err">${esc(j.error)}</span>`
+          : `端口 ${j.port_pref || j.port || '-'}`);
+    const cmdLine = j.cmd
+      ? `<div class="ln" title="${esc(j.cmd)}">命令：<b>${esc(j.cmd)}</b></div>`
+      : '';
+    return `<div class="card job">
+      <div class="top">
+        <span class="dot ${j.status}"></span>
+        <h3 title="${esc(j.name)}">${esc(j.name)}</h3>
+        ${j.proxy_to ? `<span class="ptag" title="反代：对外端口 → 脚本自身监听 127.0.0.1:${j.proxy_to}">:${j.port || j.port_pref || '?'} → ${j.proxy_to}</span>`
+          : (j.port_pref ? `<span class="ptag" title="指定端口（重启后仍固定）">:${j.port_pref}</span>` : '')}
+        ${j.schedule ? `<span class="stag" title="定时启动：${esc(j.schedule)}">⏱ ${esc(j.schedule)}</span>` : ''}
+        <span class="badge ${j.status}">${STAT[j.status] || j.status}</span>
+      </div>
+      <div class="rows">
+        <div class="ln" title="${esc(meta)}">${meta}</div>
+        <div class="ln">${line2}</div>
+        ${cmdLine}
+        <div class="ln" title="${esc(j.workdir)}">${esc(j.workdir)}</div>
+      </div>
+      <div class="acts">
+        ${act}
+        <button class="b" data-a="log" data-id="${j.id}" data-name="${esc(j.name)}">日志</button>
+        <button class="b" data-a="edit" data-id="${j.id}">编辑</button>
+        <button class="b danger" data-a="del" data-id="${j.id}">删除</button>
+        <label class="chk" title="容器/面板重启后自动启动该任务">
+          <input type="checkbox" data-a="autostart" data-id="${j.id}"${j.auto_start ? ' checked' : ''}> 自启动
+        </label>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtU(s){ const h=Math.floor(s/3600), m=Math.floor(s%3600/60); return h?`${h}h${m}m`:(m?`${m}m${s%60}s`:`${s}s`); }
+
+$('#jobs').addEventListener('click', async e=>{
+  const b = e.target.closest('button[data-a]'); if(!b) return;
+  const {a, id, name} = b.dataset;
+  try{
+    if (a==='start') await api(`/api/jobs/${id}/start`, {method:'POST'});
+    if (a==='stop') await api(`/api/jobs/${id}/stop`, {method:'POST'});
+    if (a==='restart') await api(`/api/jobs/${id}/restart`, {method:'POST'});
+    if (a==='del'){ if(!confirm('删除任务及其上传文件？')) return; await api(`/api/jobs/${id}`,{method:'DELETE'}); if(LOG_ID===id) closeLog(); }
+    if (a==='log'){ openLog(id, name); return; }
+    if (a==='edit'){ openModal({title:'编辑任务', id}); return; }
+    await refreshJobs();
+  }catch(err){ toast(err.message,'err'); }
+});
+
+$('#jobs').addEventListener('change', async e=>{
+  const cb = e.target.closest('input[data-a=autostart]'); if(!cb) return;
+  try{
+    await api(`/api/jobs/${cb.dataset.id}`, {method:'PATCH', json:{auto_start: cb.checked}});
+    toast(cb.checked ? '已设为随容器自启动' : '已取消自启动', 'ok');
+    await refreshJobs();
+  }catch(err){ toast(err.message,'err'); cb.checked = !cb.checked; }
+});
+
+async function refreshJobs(){
+  try{
+    const d = await api('/api/jobs');
+    JOBS = d.jobs;
+    renderJobs();
+    if (LOG_ID){
+      const j = JOBS.find(x=>x.id===LOG_ID);
+      if (j){ $('#logtitle').textContent = j.name; $('#logstatus').textContent = STAT[j.status]||j.status; }
+    }
+  }catch(e){ /* 忽略瞬时错误 */ }
+}
+$('#refresh').onclick = refreshJobs;
+setInterval(()=>{ if($('#auto').checked && $('#tab-tasks').classList.contains('hidden')===false) refreshJobs(); }, 2000);
+
+/* ---------- 日志 ---------- */
+function openLog(id, name){
+  LOG_ID = id;
+  $('#logtitle').textContent = name || id;
+  $('#logempty').classList.add('hidden');
+  $('#logbody').classList.remove('hidden');
+  const body = $('#logbody'); body.innerHTML = '';
+  if (LOG_ES) LOG_ES.close();
+  const url = `/api/jobs/${id}/logs/stream` + (TOKEN?`?token=${encodeURIComponent(TOKEN)}`:'');
+  LOG_ES = new EventSource(url);
+  LOG_ES.onmessage = ev=>{
+    try{
+      const d = JSON.parse(ev.data);
+      if (d.lines){ d.lines.forEach(l=>{ const s=document.createElement('span'); s.textContent=l; body.appendChild(s); }); }
+      if (d.status) $('#logstatus').textContent = STAT[d.status]||d.status;
+      body.scrollTop = body.scrollHeight;
+    }catch(e){}
+  };
+  LOG_ES.onerror = ()=>{ $('#logstatus').textContent = '连接中断'; };
+}
+function closeLog(){
+  if (LOG_ES){ LOG_ES.close(); LOG_ES = null; }
+  LOG_ID = null;
+  $('#logbody').classList.add('hidden');
+  $('#logempty').classList.remove('hidden');
+  $('#logtitle').textContent = '未选择任务';
+  $('#logstatus').textContent = '';
+}
+$('#logclose').onclick = closeLog;
+$('#logclear').onclick = async ()=>{ if(!LOG_ID) return; try{ await api(`/api/jobs/${LOG_ID}/logs`,{method:'DELETE'}); $('#logbody').innerHTML=''; }catch(e){ toast(e.message,'err'); } };
+
+/* ---------- 上传 ---------- */
+let SELECTED = [];   // {path, file}
+const drop = $('#drop');
+
+function addFiles(list){
+  for (const f of list){
+    const p = f.webkitRelativePath || f.name;
+    const i = SELECTED.findIndex(x=>x.path===p);
+    if (i>=0) SELECTED[i] = {path:p, file:f}; else SELECTED.push({path:p, file:f});
+  }
+  renderChips();
+}
+function renderChips(){
+  $('#chips').innerHTML = SELECTED.length
+    ? `<span class="chip">已选 <b>${SELECTED.length}</b> 个</span>` +
+      SELECTED.slice(0,60).map(f=>`<span class="chip">${esc(f.path)}</span>`).join('') +
+      (SELECTED.length>60?`<span class="chip">…还有 ${SELECTED.length-60} 个</span>`:'')
+    : '';
+}
+$('#pickf').onclick = e=>{e.preventDefault(); $('#inpF').click();};
+$('#pickd').onclick = e=>{e.preventDefault(); $('#inpD').click();};
+$('#pickz').onclick = e=>{e.preventDefault(); $('#inpZ').click();};
+$('#inpF').onchange = e=>{ addFiles([...e.target.files]); e.target.value=''; };
+$('#inpD').onchange = e=>{ SELECTED=[]; addFiles([...e.target.files]); e.target.value=''; };
+$('#inpZ').onchange = e=>{ SELECTED=[]; addFiles([...e.target.files]); e.target.value=''; };
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop', e=>{ if(e.dataTransfer.files.length){ SELECTED=[]; addFiles([...e.dataTransfer.files]); } });
+
+$('#upform').onsubmit = async e=>{
+  e.preventDefault();
+  if (!SELECTED.length){ toast('请先选择文件','err'); return; }
+  if (!chkPort($('#uport').value) || !chkProxy($('#uproxy').value) || !chkSched($('#usched').value)) return;
+  const fd = new FormData();
+  const isZip = SELECTED.length===1 && SELECTED[0].path.toLowerCase().endsWith('.zip');
+  const hasPath = SELECTED.some(f=>f.path.includes('/'));
+  fd.append('name', $('#uname').value.trim());
+  fd.append('entry', $('#uentry').value.trim());
+  fd.append('cmd', $('#ucmd').value.trim());
+  fd.append('port', $('#uport').value.trim());
+  fd.append('proxy_to', $('#uproxy').value.trim());
+  fd.append('schedule', $('#usched').value.trim());
+  fd.append('run_mode', $('#urunmode').value);
+  fd.append('mode', isZip?'zip':(hasPath?'dir':'single'));
+  SELECTED.forEach(f=> fd.append('files', f.file, f.path));
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = '上传中...';
+  try{
+    const d = await api('/api/upload', {method:'POST', body:fd});
+    toast(`已创建任务「${d.job.name}」，可直接启动`,'ok');
+    SELECTED = []; renderChips();
+    $('#uname').value=''; $('#uentry').value=''; $('#ucmd').value=''; $('#uport').value=''; $('#uproxy').value=''; $('#usched').value=''; $('#urunmode').value='auto';
+    document.querySelector('#tabs button[data-t=tasks]').click();
+    await refreshJobs();
+    await api(`/api/jobs/${d.job.id}/start`, {method:'POST'});
+    await refreshJobs();
+    openLog(d.job.id, d.job.name);
+  }catch(err){ toast(err.message,'err'); }
+  finally{ btn.disabled=false; btn.textContent='创建任务'; }
+};
+
+/* ---------- 挂载目录 ---------- */
+let MPATH = '';
+async function loadTree(path){
+  MPATH = path || '';
+  try{
+    const d = await api(`/api/fs?root=mount&path=${encodeURIComponent(MPATH)}`);
+    $('#mountroot').textContent = '挂载点：' + CFG.mount_dir;
+    const parts = MPATH ? MPATH.split('/') : [];
+    let html = `<div class="crumb"><a data-p="">${esc(CFG.mount_dir)}</a>` +
+      parts.map((p,i)=>` / <a data-p="${esc(parts.slice(0,i+1).join('/'))}">${esc(p)}</a>`).join('') + `</div>`;
+    if (!d.entries.length) html += `<div class="r" style="color:var(--dim)">（空目录）</div>`;
+    html += d.entries.map(en=>{
+      const canRun = en.type==='file' && /\.(php|py|js)$/i.test(en.name);
+      return `<div class="r">
+        <span class="nm" data-p="${esc(en.path)}" data-t="${en.type}">${en.type==='dir'?'📁':'📄'} ${esc(en.name)}</span>
+        <span class="sz">${en.type==='file'?fmtS(en.size):'目录'}</span>
+        ${en.type==='dir'?`<button class="b" data-run="${esc(en.path)}">运行</button>`:''}
+        ${canRun?`<button class="b primary" data-run="${esc(en.path)}">运行</button>`:''}
+        ${en.type==='file'?`<a href="/api/fs/download?root=mount&path=${encodeURIComponent(en.path)}${TOKEN?`&token=${encodeURIComponent(TOKEN)}`:''}" class="b" style="border:1px solid var(--line);padding:5px 12px;border-radius:7px">下载</a>`:''}
+      </div>`;
+    }).join('');
+    $('#tree').innerHTML = html;
+  }catch(err){ $('#tree').innerHTML = `<div class="crumb">${esc(err.message)}</div>`; }
+}
+function fmtS(n){ if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' K'; return (n/1048576).toFixed(1)+' M'; }
+$('#tree').addEventListener('click', e=>{
+  const a = e.target.closest('a[data-p]');
+  if (a){ loadTree(a.dataset.p); return; }
+  const nm = e.target.closest('.nm');
+  if (nm){ if(nm.dataset.t==='dir') loadTree(nm.dataset.p); return; }
+  const r = e.target.closest('[data-run]');
+  if (r){ openModal({title:'运行挂载路径', path:r.dataset.run}); }
+});
+$('#mrefresh').onclick = ()=>loadTree(MPATH);
+
+function chkPort(v){
+  v = String(v ?? '').trim();
+  if (!v) return true;
+  if (!/^\d+$/.test(v)){ toast('端口必须是正整数','err'); return false; }
+  const [a, b] = CFG.port_range || [0, 0];
+  const n = parseInt(v, 10);
+  if (a && (n < a || n > b)){ toast(`指定端口须在面板端口段 ${a}-${b} 内`,'err'); return false; }
+  if (n > 65535){ toast('端口范围 1-65535','err'); return false; }
+  return true;
+}
+
+function chkProxy(v){
+  v = String(v ?? '').trim();
+  if (!v || v === '0') return true;
+  if (!/^\d+$/.test(v)){ toast('反代端口必须是正整数','err'); return false; }
+  const n = parseInt(v, 10);
+  if (n < 1 || n > 65535){ toast('反代端口范围 1-65535','err'); return false; }
+  return true;
+}
+
+function chkSched(v){
+  v = String(v ?? '').trim();
+  if (!v) return true;
+  const p = v.split(/\s+/);
+  if (p.length !== 5){ toast('cron 需要 5 段：分 时 日 月 周','err'); return false; }
+  const range = [[0,59],[0,23],[1,31],[1,12],[0,7]];
+  for (let i = 0; i < 5; i++){
+    for (const tok of p[i].split(',')){
+      const base = tok.split('/')[0];
+      if (base === '*' || base === '') continue;
+      if (/^\d+-\d+$/.test(base)){
+        const [a, b] = base.split('-').map(Number);
+        if (a < range[i][0] || b > range[i][1] || a > b){ toast(`cron 第${i+1}段越界（${tok}）`,'err'); return false; }
+      } else if (/^\d+$/.test(base)){
+        const n = Number(base);
+        if (n < range[i][0] || n > range[i][1]){ toast(`cron 第${i+1}段越界（${tok}）`,'err'); return false; }
+      } else { toast(`cron 字段非法：${tok}`,'err'); return false; }
+    }
+    if (p[i].includes('/')){
+      const st = Number(p[i].split('/')[1]);
+      if (!Number.isInteger(st) || st < 1){ toast('cron 步长必须是 >=1 的整数','err'); return false; }
+    }
+  }
+  return true;
+}
+
+/* ---------- 弹窗 ---------- */
+let M = {};
+function openModal(o){
+  M = o;
+  $('#mtitle').textContent = o.title;
+  const j = o.id ? JOBS.find(x=>x.id===o.id) : null;
+  $('#mdesc').textContent = o.path ? `路径：${CFG.mount_dir}/${o.path}` : (j? `工作目录：${j.workdir}` : '');
+  $('#mname').value = j ? j.name : (o.path ? o.path.split('/').pop().replace(/\.[^.]+$/,'') : '');
+  $('#mentry').value = j ? (j.entry||'') : '';
+  $('#mcmd').value = j ? (j.cmd||'') : '';
+  $('#mport').value = j && j.port_pref ? j.port_pref : '';
+  $('#mproxy').value = j && j.proxy_to ? j.proxy_to : '';
+  $('#msched').value = j ? (j.schedule || '') : '';
+  $('#mrunmode').value = (j && j.mode) || 'auto';
+  $('#modal').classList.remove('hidden');
+}
+$('#mcancel').onclick = ()=>$('#modal').classList.add('hidden');
+$('#mform').onsubmit = async e=>{
+  e.preventDefault();
+  try{
+    let jid = M.id;
+    const port = $('#mport').value.trim();
+    const proxyTo = $('#mproxy').value.trim();
+    const schedule = $('#msched').value.trim();
+    if (!chkPort(port) || !chkProxy(proxyTo) || !chkSched(schedule)) return;
+    let restarted = false;
+    if (M.path){
+      const d = await api('/api/mounted/run', {method:'POST', json:{
+        path:M.path, name:$('#mname').value.trim(), entry:$('#mentry').value.trim(),
+        cmd:$('#mcmd').value.trim(), port, proxy_to:proxyTo, schedule,
+        mode:$('#mrunmode').value}});
+      jid = d.job.id;
+    } else {
+      const cur = JOBS.find(x=>x.id===jid);
+      const wasRunning = !!(cur && cur.status === 'running');
+      if (wasRunning){
+        const title = $('#mname').value.trim() || cur.name;
+        const yes = confirm(`任务「${title}」正在运行\n\n修改需要先停止并自动重启，确定吗？`);
+        if (!yes) return;                       // 取消：弹窗保持打开，可继续修改
+        await api(`/api/jobs/${jid}/stop`, {method:'POST'});
+        await refreshJobs();
+      }
+      await api(`/api/jobs/${jid}`, {method:'PATCH', json:{
+        name:$('#mname').value.trim(), entry:$('#mentry').value.trim(),
+        cmd:$('#mcmd').value.trim(), port, proxy_to:proxyTo, schedule,
+        mode:$('#mrunmode').value}});
+      if (wasRunning){
+        await api(`/api/jobs/${jid}/start`, {method:'POST'});
+        await refreshJobs();
+        openLog(jid, $('#mname').value.trim());
+        restarted = true;
+      }
+    }
+    $('#modal').classList.add('hidden');
+    document.querySelector('#tabs button[data-t=tasks]').click();
+    await refreshJobs();
+    if (M.path){
+      await api(`/api/jobs/${jid}/start`, {method:'POST'});
+      await refreshJobs();
+      openLog(jid, $('#mname').value.trim());
+    }
+    toast(restarted ? '已修改并自动重启' : '已提交','ok');
+  }catch(err){ toast(err.message,'err'); }
+};
+
+/* ---------- 包管理（composer） ---------- */
+let PKGS = [], REQUIRES = {};
+async function loadEnv(){
+  try{
+    const e = await api('/api/env');
+    const bits = [];
+    bits.push(e.php.version ? e.php.version.split(/\s+/).slice(0,2).join(' ') : 'PHP 未安装');
+    if (e.composer) bits.push(e.composer.replace('Composer version ', 'Composer '));
+    if (e.node) bits.push('Node ' + e.node);
+    if (e.python) bits.push(e.python);
+    $('#envinfo').textContent = bits.join(' · ');
+  }catch(e){ $('#envinfo').textContent = '环境信息获取失败：' + e.message; }
+}
+async function loadPkgs(){
+  const jid = $('#pjid').value || '';
+  try{
+    const d = await api('/api/packages' + (jid ? `?jid=${encodeURIComponent(jid)}` : ''));
+    PKGS = d.packages; REQUIRES = d.requires || {};
+    $('#pwdhint').textContent = 'workdir: ' + d.workdir +
+      (d.composer_json ? '（有 composer.json）' : '（无 composer.json，require 会自动创建）');
+    const sel = $('#pjid'), cur = sel.value;
+    const opts = ['<option value="">最近创建的任务</option>'].concat(
+      (d.projects||[]).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`));
+    sel.innerHTML = opts.join('');
+    if ([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+    const missing = d.missing || [];
+    $('#reqhint').innerHTML = missing.length
+      ? `composer.json 声明但未安装：<b style="color:#ffb3af">${missing.map(esc).join('、 ')}</b>（点 require 安装或启动任务时自动装）`
+      : (d.requires && Object.keys(d.requires).length
+          ? 'composer.json 声明的依赖均已安装：' + Object.keys(d.requires).map(esc).join('、 ')
+          : 'composer.json 依赖：—');
+    const noisy = !d.composer_json && /create a composer\.json/i.test(d.error || '');
+    if (!noisy && d.error && !PKGS.length) $('#ptbody').innerHTML = `<tr><td colspan="3">${esc(d.error)}</td></tr>`;
+    else if (!d.composer_json && !PKGS.length) $('#ptbody').innerHTML = '<tr><td colspan="3" style="color:var(--dim)">该任务还没有 composer.json —— 下面包名点「安装」会自动创建并写入 require；不用 composer 的纯 PHP 脚本这里为空属正常</td></tr>';
+    else if (!PKGS.length) $('#ptbody').innerHTML = '<tr><td colspan="3" style="color:var(--dim)">该项目还没有安装 composer 包（点「安装」，或启动任务时自动 composer install）</td></tr>';
+    else renderPkgs();
+  }catch(e){ $('#ptbody').innerHTML = `<tr><td colspan="3">${esc(e.message)}</td></tr>`; }
+}
+function renderPkgs(){
+  const q = $('#pfilter').value.trim().toLowerCase();
+  const list = PKGS.filter(p=>!q || (p.name||'').toLowerCase().includes(q));
+  $('#ptbody').innerHTML = list.length
+    ? list.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.version)}</td><td style="color:var(--dim)">${esc(p.description||'')}</td></tr>`).join('')
+    : '<tr><td colspan="3">无匹配</td></tr>';
+}
+$('#pfilter').oninput = renderPkgs;
+$('#pjid').onchange = loadPkgs;
+
+/* Python · pip（镜像全局环境） */
+let PYPKGS = [];
+async function loadPyPkgs(){
+  try{
+    const d = await api('/api/pip-packages');
+    PYPKGS = d.packages || [];
+    $('#pysum').textContent = `已安装 ${PYPKGS.length} 个 pip 包（镜像全局 site-packages，所有任务共用）`;
+    renderPyPkgs();
+  }catch(e){
+    $('#pytbody').innerHTML = `<tr><td colspan="2">${esc(e.message)}</td></tr>`;
+    $('#pysum').textContent = 'pip 包列表获取失败';
+  }
+}
+function renderPyPkgs(){
+  const q = $('#pyfilter').value.trim().toLowerCase();
+  const list = PYPKGS.filter(p=>!q || (p.name||'').toLowerCase().includes(q));
+  $('#pytbody').innerHTML = list.length
+    ? list.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(p.version)}</td></tr>`).join('')
+    : '<tr><td colspan="2">无匹配</td></tr>';
+}
+async function pipRun(action, verb){
+  const spec = $('#pyspec').value.trim();
+  if(!spec) return;
+  const out = $('#pyout'); out.classList.remove('hidden');
+  out.textContent = `>>> pip ${action} ${spec}\n执行中...`;
+  const btn = action==='install' ? $('#pyinstall') : $('#pyremove');
+  btn.disabled = true;
+  try{
+    const d = await api(`/api/pip/${action}`, {method:'POST', json:{spec}});
+    out.textContent = `>>> pip ${action} ${spec}\n` + d.log;
+    toast(d.ok?`${verb}成功`:`${verb}失败`, d.ok?'ok':'err');
+    if (d.ok) loadPyPkgs();
+  }catch(e){ out.textContent = e.message; toast(e.message,'err'); }
+  finally{ btn.disabled = false; }
+}
+$('#pyfilter').oninput = renderPyPkgs;
+$('#pyinstall').onclick = ()=>pipRun('install', '安装');
+$('#pyremove').onclick = ()=>pipRun('remove', '卸载');
+
+/* 包管理子页签：Python · pip / PHP · composer（数据在进入本页时已全部加载） */
+document.querySelectorAll('#pkgtabs button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('#pkgtabs button').forEach(x=>x.classList.toggle('on', x===b));
+    $('#pkgs-py').classList.toggle('hidden', b.dataset.k !== 'py');
+    $('#pkgs-php').classList.toggle('hidden', b.dataset.k !== 'php');
+  };
+});
+
+async function composerRun(action, verb){
+  const spec = $('#pspec').value.trim();
+  if(!spec) return;
+  const out = $('#pout'); out.classList.remove('hidden'); out.textContent = `>>> composer ${action} ${spec}\n执行中...`;
+  const btn = action==='require' ? $('#pinstall') : $('#premove');
+  btn.disabled = true;
+  try{
+    const d = await api(`/api/packages/${action==='require'?'install':'remove'}`, {method:'POST',
+      json:{spec, jid: $('#pjid').value || ''}});
+    out.textContent = `>>> composer ${action} ${spec}\n` + d.log;
+    toast(d.ok?`${verb}成功`:`${verb}失败`, d.ok?'ok':'err');
+    if (d.ok) loadPkgs();
+  }catch(e){ out.textContent = e.message; toast(e.message,'err'); }
+  finally{ btn.disabled = false; }
+}
+$('#pinstall').onclick = ()=>composerRun('require', '安装');
+$('#premove').onclick = ()=>composerRun('remove', '移除');
+
+/* ---------- 启动 ---------- */
+(async function init(){
+  try{
+    CFG = await api('/api/config');
+    $('#cfg').textContent = `面板 :${CFG.panel_port} · 任务端口 ${CFG.port_range[0]}-${CFG.port_range[1]}`;
+  }catch(e){}
+  await refreshJobs();
+  loadTree();
+})();
+</script>
+</body>
+</html>

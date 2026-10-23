@@ -1,0 +1,9 @@
+{
+    "name": "demo/composer-demo",
+    "description": "演示：启动前自动 composer install、缺类自动 composer require",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "monolog/monolog": "^3.0"
+    }
+}
