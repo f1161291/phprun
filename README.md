@@ -33,6 +33,15 @@ docker pull ghcr.io/<owner>/phprun:latest
 
 镜像同时提供 **amd64（x86_64）与 arm64** 两个架构，Docker 会根据宿主机 CPU 架构自动拉取对应版本。
 
+每次推送构建成功后会自动生成递增的版本标签 **v1.0 / v1.1 / v1.2 …**（构建失败不占版本号）；`latest` 始终指向最新一次成功构建，之前的版本通过版本标签保留：
+
+```bash
+# 查看已有版本标签，按需拉取固定版本（如回退到 v1.0）
+docker pull ghcr.io/<owner>/phprun:v1.0
+```
+
+（每个构建同时会打 commit 短 SHA 标签，也可用于固定版本。）
+
 ```bash
 # 运行（挂载目录 / 数据目录换成你的路径）
 docker run -d --name phprun \

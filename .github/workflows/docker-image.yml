@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # 构建成功后创建 vX.Y 版本标签（GITHUB_TOKEN 需要写权限）
   packages: write
 
 concurrency:
@@ -28,6 +28,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 每次分支推送自动取下一个版本号：扫描已有 vX.Y 标签，minor 递增（v1.0 → v1.1 → v1.2 …）
+      # 打 v* 标签的推送不计算（走下面的 semver 标签）；失败/取消的构建不占版本号
+      - name: 计算下一个版本号
+        id: bump
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          max_major=1; max_minor=-1
+          tags="$(gh api "repos/${{ github.repository }}/git/matching-refs/tags/v" --paginate --jq -r '.[].ref' 2>/dev/null | sed 's|refs/tags/v||' || true)"
+          for t in $tags; do
+            t="${t#v}"
+            if [[ "$t" =~ ^([0-9]+)\.([0-9]+)$ ]]; then
+              major="${BASH_REMATCH[1]}"; minor="${BASH_REMATCH[2]}"
+              if (( major > max_major )) || { (( major == max_major )) && (( minor > max_minor )); }; then
+                max_major=$major; max_minor=$minor
+              fi
+            fi
+          done
+          echo "version=${max_major}.$(( max_minor + 1 ))" >> "$GITHUB_OUTPUT"
+          echo "next version: v${max_major}.$(( max_minor + 1 ))"
 
       # GHCR 镜像名必须全小写（github.repository 可能含大写用户名）
       - name: Lowercase image name
@@ -56,10 +78,12 @@ jobs:
           tags: |
             # main/master 分支 → latest
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            # 自动递增版本号 → v1.0 / v1.1 / v1.2 …
+            type=raw,value=v${{ steps.bump.outputs.version || '0.0' }},enable=${{ !startsWith(github.ref, 'refs/tags/') }}
             # 分支名（main）与 commit sha 短码
             type=ref,event=branch
             type=sha,format=short
-            # v1.2.3 标签 → 1.2.3 / 1.2 / 1
+            # 手动打 v1.2.3 标签 → 1.2.3 / 1.2 / 1
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
@@ -80,3 +104,18 @@ jobs:
           # GitHub Actions 层缓存，二次构建更快
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # 镜像推送成功后，把版本号写成本次提交的 git tag（下次构建从它之后递增）
+      # 只在分支推送时执行；构建失败/被取消则本步不运行 → 该版本号不会被占用
+      - name: 打版本标签
+        if: ${{ success() && !startsWith(github.ref, 'refs/tags/') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="v${{ steps.bump.outputs.version }}"
+          if gh api -X POST "repos/${{ github.repository }}/git/refs" \
+              -f "ref=refs/tags/$v" -f "sha=${{ github.sha }}" --jq '.ref' >/dev/null 2>&1; then
+            echo "已创建标签 $v"
+          else
+            echo "标签 $v 已存在或创建失败（跳过，下次构建会自动用下一个版本号）"
+          fi
