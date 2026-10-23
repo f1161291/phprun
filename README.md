@@ -42,6 +42,20 @@ docker pull ghcr.io/<owner>/phprun:v1.0
 
 （每个构建同时会打 commit 短 SHA 标签，也可用于固定版本。）
 
+## 从 Docker Hub 拉取镜像（可选）
+
+在 GitHub 仓库 **Settings → Secrets and variables → Actions** 添加两个密钥后，构建会**同时推送 Docker Hub**（同样带 `latest` 与 `v1.0/v1.1/…` 版本标签）：
+
+- `DOCKERHUB_USERNAME`：你的 Docker Hub 用户名
+- `DOCKERHUB_TOKEN`：在 https://hub.docker.com/settings/security 创建的 Access Token（只需 Read/Write 权限）
+
+```bash
+# 替换 <username> 为你的 Docker Hub 用户名
+docker pull <username>/phprun:latest
+```
+
+未配置密钥时仍照常推送 GHCR，不影响使用。
+
 ```bash
 # 运行（挂载目录 / 数据目录换成你的路径）
 docker run -d --name phprun \

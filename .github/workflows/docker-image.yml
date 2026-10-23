@@ -25,6 +25,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Docker Hub 凭据：未配置这两个 Secret 时只推 GHCR，配置后同时推送 Docker Hub
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,8 +56,26 @@ jobs:
           echo "next version: v${max_major}.$(( max_minor + 1 ))"
 
       # GHCR 镜像名必须全小写（github.repository 可能含大写用户名）
-      - name: Lowercase image name
-        run: echo "IMAGE_NAME=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_ENV"
+      # 配置了 DOCKERHUB_USERNAME 时，镜像列表追加 Docker Hub 目标（namespace 取用户名）
+      - name: 生成镜像名列表
+        id: imgs
+        run: |
+          IMG="ghcr.io/${REPOSITORY,,}"
+          echo "IMAGE_NAME=${IMG}" >> "$GITHUB_ENV"
+          if [ -n "$DOCKERHUB_USERNAME" ]; then
+            {
+              echo "images<<IMGEOF"
+              echo "$IMG"
+              echo "$DOCKERHUB_USERNAME/phprun"
+              echo "IMGEOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "images<<IMGEOF"
+              echo "$IMG"
+              echo "IMGEOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
         env:
           REPOSITORY: ${{ github.repository }}
 
@@ -70,11 +92,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Login to Docker Hub
+        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
       - name: Docker meta (tags/labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ steps.imgs.outputs.images }}
           tags: |
             # main/master 分支 → latest
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
