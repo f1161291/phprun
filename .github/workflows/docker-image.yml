@@ -42,7 +42,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           max_major=1; max_minor=-1
-          tags="$(gh api "repos/${{ github.repository }}/git/matching-refs/tags/v" --paginate --jq -r '.[].ref' 2>/dev/null | sed 's|refs/tags/v||' || true)"
+          # 注意：不要写 --jq -r 'query'，-r 会被 --jq 当作查询值吞掉导致 gh 报错；--jq 输出本身就是 raw
+          tags="$(gh api "repos/${{ github.repository }}/git/matching-refs/tags/v" --paginate --jq '.[].ref' | sed 's|refs/tags/v||' || true)"
           for t in $tags; do
             t="${t#v}"
             if [[ "$t" =~ ^([0-9]+)\.([0-9]+)$ ]]; then
