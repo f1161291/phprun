@@ -29,7 +29,11 @@ docker compose up -d --build    # 首次或 Dockerfile 有改动时要 --build
 ```bash
 # 替换 <owner> 为你的 GitHub 用户名
 docker pull ghcr.io/<owner>/phprun:latest
+```
 
+镜像同时提供 **amd64（x86_64）与 arm64** 两个架构，Docker 会根据宿主机 CPU 架构自动拉取对应版本。
+
+```bash
 # 运行（挂载目录 / 数据目录换成你的路径）
 docker run -d --name phprun \
   -p 8100:8100 -p 8600-8699:8600-8699 \
@@ -39,7 +43,7 @@ docker run -d --name phprun \
   ghcr.io/<owner>/phprun:latest
 ```
 
-或把 `docker-compose.yml` 里的 `build:` 段落整体换成 `image: ghcr.io/<owner>/phprun:latest`，其余不变。
+`docker-compose.yml` 已默认配置为直接使用该镜像（`image: ghcr.io/<owner>/phprun:latest`），`docker compose up -d` 即可；需要本地重新构建时再取消 `build:` 段注释。
 
 ## 使用方式
 

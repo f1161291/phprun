@@ -1,17 +1,19 @@
 services:
   phprun:
-    build:
-      context: .
-      args:
-        INSTALL_PLAYWRIGHT: "0"
-        # PyPI 源：国内网络建议用镜像，报 hash 不匹配时优先换这里
-        # 官方 https://pypi.org/simple  |  阿里 https://mirrors.aliyun.com/pypi/simple/
-        # 清华 https://pypi.tuna.tsinghua.edu.cn/simple
-        PIP_INDEX_URL: "https://mirrors.aliyun.com/pypi/simple/"
-        # composer（packagist）源：国内建议镜像，运行期可用 COMPOSER_MIRROR 覆盖
-        # 阿里 https://mirrors.aliyun.com/composer/ | 腾讯 https://mirrors.cloud.tencent.com/composer/
-        COMPOSER_MIRROR: "https://mirrors.aliyun.com/composer/"
-    image: phprun:latest
+    # 直接用 GitHub Actions 构建好的远程镜像（公开仓库，无需登录即可拉取）
+    image: ghcr.io/f1161291/phprun:latest
+    # 需要本地重新构建时：注释掉上面 image: 行，取消下面 build: 块的注释，然后 docker compose up -d --build
+    # build:
+    #   context: .
+    #   args:
+    #     INSTALL_PLAYWRIGHT: "0"
+    #     # PyPI 源：国内网络建议用镜像，报 hash 不匹配时优先换这里
+    #     # 官方 https://pypi.org/simple  |  阿里 https://mirrors.aliyun.com/pypi/simple/
+    #     # 清华 https://pypi.tuna.tsinghua.edu.cn/simple
+    #     PIP_INDEX_URL: "https://mirrors.aliyun.com/pypi/simple/"
+    #     # composer（packagist）源：国内建议镜像，运行期可用 COMPOSER_MIRROR 覆盖
+    #     # 阿里 https://mirrors.aliyun.com/composer/ | 腾讯 https://mirrors.cloud.tencent.com/composer/
+    #     COMPOSER_MIRROR: "https://mirrors.aliyun.com/composer/"
     container_name: phprun
     restart: unless-stopped
     network_mode: bridge
@@ -39,8 +41,10 @@ services:
     volumes:
       - ./scripts:/mount      # 挂载目录：宿主机 ./scripts -> 容器 /mount
       - ./data:/data          # 上传文件 / 任务工作区 / 日志 / composer 全局配置 持久化
-      - ./app:/app/app:ro     # 面板代码走挂载：改完 docker compose restart 即生效，无需重建镜像
-                              # （镜像里仍 COPY 了一份兜底，不挂载也能跑）
+      # 用远程镜像、且宿主机上没有 ./app 源码目录时，务必保持下面这行注释状态：
+      # 否则 docker 会创建空目录挂载上去，把镜像里自带的面板代码盖掉，容器起不来。
+      # 只有本机有 phprun 源码（改面板代码想免重建生效）时才取消注释：
+      # - ./app:/app/app:ro     # 面板代码走挂载：改完 docker compose restart 即生效，无需重建镜像
     # 需要让脚本能访问宿主机网络之外的服务时，可去掉下面注释
     # （用 host 模式时必须同时删掉上面的 ports:，容器直接用宿主机 8100/8600-8699）
     # network_mode: host

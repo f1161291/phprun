@@ -28,6 +28,9 @@ jobs:
         env:
           REPOSITORY: ${{ github.repository }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -59,6 +62,8 @@ jobs:
         with:
           context: .
           push: true
+          # x86_64 + arm64 双架构（各平台在对应 Dockerfile 的 ENV/ARG 下构建）
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
